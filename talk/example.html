@@ -1,0 +1,37 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+   <TITLE>t.tcl</TITLE>
+   <META NAME="GENERATOR" CONTENT="Mozilla/3.01Gold (X11; I; SunOS 5.5 sun4u) [Netscape]">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF">
+
+<H1>An Example</H1>
+
+<PRE><B><I><FONT COLOR="#CC00FF"># divmod: returns 2-element list of quotient and remainder
+
+</FONT></I>proc divmod {dividend divisor} {
+   assume {<FONT COLOR="#0099FF">$dividend</FONT>+1 &gt; <FONT COLOR="#0099FF">$dividend</FONT>} 
+   assume {<FONT COLOR="#0099FF">$divisor</FONT>+1 != 1} {
+      return [list 0 0]
+   }
+   assure {[lindex <FONT COLOR="#0099FF">$return_val</FONT> 0]*<FONT COLOR="#0099FF">$divisor_in</FONT> + \
+           [lindex <FONT COLOR="#0099FF">$return_val</FONT> 1] == <FONT COLOR="#0099FF">$dividend_in</FONT>} 
+   set quot [expr <FONT COLOR="#0099FF">$dividend</FONT> / <FONT COLOR="#0099FF">$divisor</FONT>]
+   set rem  [expr <FONT COLOR="#0099FF">$dividend</FONT> % <FONT COLOR="#0099FF">$divisor</FONT>]
+   return [list <FONT COLOR="#0099FF">$quot</FONT> <FONT COLOR="#0099FF">$rem</FONT>]
+}</B>
+</PRE>
+
+<UL>
+<LI>Assume's state (and check) input parameter assumptions</LI>
+
+<LI>Assure states (and checks) return value (and output) </LI>
+</UL>
+
+<CENTER><P>
+<HR WIDTH="100%">[<A HREF="index.html">Home</A>] [<A HREF="intro.html">Prev]</A>
+[<A HREF="output.html">Next</A>]</P></CENTER>
+
+</BODY>
+</HTML>

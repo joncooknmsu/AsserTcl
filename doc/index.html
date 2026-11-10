@@ -1,0 +1,93 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+   <TITLE></TITLE>
+   <META NAME="GENERATOR" CONTENT="Mozilla/3.01Gold (X11; I; SunOS 5.5 sun4u) [Netscape]">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF">
+
+<H1>AsserTcl:&nbsp;Assertions for the Tcl Language</H1>
+
+<P>
+<HR WIDTH="100%"></P>
+
+<H2>A Brief Overview</H2>
+
+<P>AsserTcl provides powerful assertion commands to enable a Tcl developer
+to write robust, self-checking programs. This package provides assertion
+commands for: </P>
+
+<UL>
+<LI>Point assertions, a la the assert() macro in C, </LI>
+
+<LI>Procedure input assumptions, * Procedure output and return value assurances,
+and </LI>
+
+<LI>Variable lifetime assertions (a fancy interface to 'trace') </LI>
+</UL>
+
+<P>By default, assertions generate an error exception that aborts the script,
+but this can be overridden by providing a failure- action for the assertion,
+allowing the program to simply print some debugging information, or even
+to recover from the failed assertion, and to continue the program. Additionally,
+for the list and array aggregate data structures, quantifier commands are
+added, for testing whether an expression holds universally or existentially
+over a data structure. </P>
+
+<P>For example, the point assertion </P>
+
+<P>assert {[lall {i1 i2} $list {$i1 &lt;= $i2}]} {puts &quot;list is not
+sorted!&quot;} </P>
+
+<P>checks that $list is sorted (using the universal list quantifier 'lall'
+over two-item sequences), and prints a message if it is not, rather than
+aborting the script. The quantifier invocation is read as &quot;for all
+two item sequences in $list, the first item is less than or equal than
+the second item&quot;. </P>
+
+<P>For concerns about deployment efficiency, assertions can be disabled
+through an extensive control interface -- the &quot;asssertcl&quot; command.
+This interface lets you disable assertions globally, or locally by procedure
+or by variable (for always assertions). A 'null' package is also available
+for deployment of a program. n the future, we hope to provide automatic
+commenting-out of assertions as a complete disabling mechanism. </P>
+
+<P>NOTE: The tar file does *not* contain a top-level directory. Be sure
+to make a directory before untarring the distribution. </P>
+
+<P>
+<HR WIDTH="100%"></P>
+
+<H2>Version and Retrieval Information</H2>
+
+<P>This release of AsserTcl is 1.0, the first mainstream-ready version.
+The most notable changes from 0.91 are: </P>
+
+<UL>
+<LI>An extensive control interface for enabling/disabling assertion checking.
+</LI>
+</UL>
+
+<P>AsserTcl has been developed on Tcl 7.6, but has been run on Tcl 8.0a2,
+though not extensively tested. It has not been tested with [incr Tcl] or
+any other add-on, but I don't imagine that it would be incompatible. </P>
+
+<P>AsserTcl is a Tcl-only package. You can get AsserTcl at <A HREF="http://www.cs.colorado.edu/~jcook/TclTk">http://www.cs.colorado.edu/~jcook/TclTk</A>
+</P>
+
+<P>I would love to hear about any suggestions, problems, and requests that
+anyone would have. I intend to support and continue development on AsserTcl,
+so I will seriously entertain any requests you have. </P>
+
+<P>Enjoy, </P>
+
+<P>Jon Cook. <A HREF="mailto:jcook@cs.nmsu.edu">jcook@cs.nmsu.edu</A> July
+8, 1997 </P>
+
+<P>
+<HR WIDTH="100%"></P>
+
+<P>An online version of the Tcl/Tk '97 Workshop paper is <A HREF="AsserTcl.html">here</A>.</P>
+
+</BODY>
+</HTML>

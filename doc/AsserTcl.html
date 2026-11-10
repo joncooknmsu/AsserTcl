@@ -1,0 +1,947 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+   <TITLE>From the 5th Tcl/Tk Workshop, Boston, MA, USA, July 1997  Assertions for the Tcl Language </TITLE>
+   <META NAME="description" CONTENT="From the 5th Tcl/Tk Workshop, Boston, MA, USA, July 1997  Assertions for the Tcl Language">
+   <META NAME="keywords" CONTENT="Assertcl">
+   <META NAME="resource-type" CONTENT="document">
+   <META NAME="distribution" CONTENT="global">
+   <META NAME="GENERATOR" CONTENT="Mozilla/3.01Gold (X11; I; SunOS 5.5 sun4u) [Netscape]">
+</HEAD>
+<BODY LANG="EN">
+
+<H1 ALIGN=CENTER><B>Assertions for the Tcl Language</B></H1>
+
+<CENTER><P><A HREF="http://www.cs.nmsu.edu/~jcook">Jonathan E. Cook
+<BR>
+<BR>
+</A><I><A HREF="http://www.cs.nmsu.edu">Department of Computer Science
+<BR>
+</A><A HREF="http://www.nmsu.edu">New Mexico State University</A> <BR>
+Las Cruces, NM 88003 <BR>
+<A HREF="mailto:jcook@cs.nmsu.edu">jcook@cs.nmsu.edu</A> <BR>
+<A HREF="http://www.cs.nmsu.edu/~jcook">http://www.cs.nmsu.edu/jcook</A>
+</I></P></CENTER>
+
+<H2><A NAME="SECTION00001000000000000000"></A>Abstract</H2>
+
+<P><I>Assertions, even as simple as the C <TT>assert</TT> macro, offer
+important self-checking properties to programs, and improve the robustness
+of software when they are used. This paper describes A<FONT SIZE=-1>SSER</FONT>T<FONT SIZE=-1>CL</FONT>,
+an assertion package for the Tcl programming language. Our assertions take
+the form of commands in the program text, and cover point assertions about
+the computation state, assertions about procedure input values and the
+return value, and assertions about the values that variables may take on
+over their whole lifetime. In addition, universal and existential quantifiers
+are provided for both lists and arrays, not only for individual elements,
+but for sequences of elements as well. </I></P>
+
+<H1><A NAME="SECTION00010000000000000000"></A>1 Introduction</H1>
+
+<P>Assertions--declarative annotations to a program that describe some
+property about the program and its state--are useful tools in producing
+robust software. Most programming languages are not designed to include
+assertions, with the notable exception being Eiffel&nbsp;[<A HREF="Assertcl.html#EiffelBook:88">3</A>],
+but efforts have produced annotation languages for Ada&nbsp;[<A HREF="Assertcl.html#AnnaBook:90">2</A>],
+C&nbsp;[<A HREF="Assertcl.html#APP:95">5</A>], Awk&nbsp;[<A HREF="Assertcl.html#AugustonEtAl:96">1</A>],
+and others. This paper describes assertions for the Tcl programming language&nbsp;[<A HREF="Assertcl.html#TclTkBook:94">4</A>].
+</P>
+
+<P>Tcl is a popular, interpreted, ``scripting'' language. It is now being
+used to build large (tens and hundreds of KLOCs) systems, many of which
+are being used in the commercial sector. Unfortunately, few tools exist
+that help one build robust Tcl applications. </P>
+
+<P>This is where assertions fit in. Assertions help developers write robust
+code by offering dynamic checking of program properties, and enhancing
+the program's testability. Our A<FONT SIZE=-1>SSER</FONT>T<FONT SIZE=-1>CL</FONT>
+package provides assertions for the Tcl programming language. The assertions
+take the form of commands in the program text, and cover point assertions
+about the computation state, assertions about procedure input values and
+the return value, and assertions about the values that variables may take
+on over their whole lifetime, singly or in relation to other variables.
+</P>
+
+<P>In addition, many desirable assertions in Tcl will be over an aggregate
+data structure, which in Tcl is a list or array. For this, we provide universal
+and existential quantifiers for both lists and arrays, not only for individual
+elements but for sequences of elements as well. </P>
+
+<P>Section&nbsp;<A HREF="Assertcl.html#secasserts">2</A> describes our
+assertion commands and their meaning and use, and Section&nbsp;<A HREF="Assertcl.html#secquantifiers">3</A>
+describes the quantifiers and their use. Section&nbsp;<A HREF="Assertcl.html#seccontrol">4</A>
+describes the interface for controlling the evaluation of assertions. Section&nbsp;<A HREF="Assertcl.html#secpragmatics">5</A>
+presents some pragmatic issues in adding assertions to the Tcl language,
+and describes the methods we used to implement assertions. Section&nbsp;<A HREF="Assertcl.html#secexamples">6</A>
+presents some examples in using the assertions and quantifiers. Section&nbsp;<A HREF="Assertcl.html#secperfeval">7</A>
+evaluates the performance of a Tcl program that uses assertions. Finally,
+Section&nbsp;<A HREF="Assertcl.html#secconclude">8</A> concludes with some
+observations about assertions, the Tcl language and its future, and possible
+enhancements to the language to make it easier to develop debugging and
+analysis tools. </P>
+
+<H1><A NAME="SECTION00020000000000000000"></A>2 Assertion Commands<A NAME="secasserts"></A>&nbsp;
+</H1>
+
+<P>Our assertions for Tcl are commands that use a normal Tcl expression
+as an assertion about some portion of the program. The four assertion commands
+that we have added to Tcl are: </P>
+
+<UL>
+<LI><I>assert</I> is an assertion about the current state of computation.
+It is evaluated at the point it occurs in the source; </LI>
+
+<LI><I>assume</I> is an assertion about the input values to a procedure.
+It is evaluated upon entry to a procedure; </LI>
+
+<LI><I>assure</I> is an assertion about the output and return values of
+a procedure. It is evaluated upon exit from a procedure; </LI>
+
+<LI><I>always</I> is an assertion about part of the state space (i.e.,
+variables) of the program. It must always hold, and is evaluated each time
+one of the variables it depends on changes value. </LI>
+</UL>
+
+<P>These commands are summarized in Table&nbsp;<A HREF="Assertcl.html#tabassert">1</A>.
+</P>
+
+<P><A NAME="191"></A>&nbsp;<A NAME="tabassert"></A>&nbsp;<BR>
+<B>Table 1:</B> The four basic assertion commands for Tcl.<BR>
+</P>
+
+<CENTER><TABLE BORDER=1 CELLSPACING=0 CELLPADDING=4 >
+<TR>
+<TD ALIGN=CENTER COLSPAN="2">General Form of Assertions</TD>
+</TR>
+
+<TR>
+<TD><I>assert-cmd expr ?fail-action? ?-default_also?</I></TD>
+
+<TD>Each assertion evaluates <I>expr</I> at some point or points in the
+execution of the program. If the expression evaluates to true (nonzero),
+no action is taken. If false (0), <I>fail-action</I> is taken if it is
+specified, otherwise a general exception occurs. The <I>fail-action</I>
+can use break, continue, or return. Specifying the <I>-default_also</I> 
+flag will force the general exception to occur after doing the 
+<I>fail-action</I>. </TD>
+</TR>
+
+<TR>
+<TD ALIGN=CENTER COLSPAN="2">Specific Assertion Commands</TD>
+</TR>
+
+<TR>
+<TD>assert <I>expr ?fail-action? ?-default_also?</I></TD>
+
+<TD>Point assertion: evaluates <I>expr</I> at the point of its specification,
+each time the program reaches that point.</TD>
+</TR>
+
+<TR>
+<TD>assume <I>expr ?fail-action? ?-default_also?</I></TD>
+
+<TD>Procedure entry assertion: evaluates <I>expr</I> at the beginning of
+a procedure, and should be an assertion about the input parameters of the
+procedure (and global variables used). This command should be placed at
+the top of the procedure body, just after any <I>global</I> statements,
+so that it can be seen as part of the procedure specification.</TD>
+</TR>
+
+<TR>
+<TD>assure <I>expr ?fail-action? ?-default_also?</I></TD>
+
+<TD>Procedure exit assertion: evaluates <I>expr</I> just before returning
+from a procedure, and should be an assertion about the return value of
+a procedure, and any side effects (global variables modified) of the procedure.
+Note that this command does not need to be placed at the end of the procedure,
+and should be placed at the top, after any <I>assume</I>'s, so it can be
+seen as part of the procedure specification. The values of the input parameters
+at the time of procedure invocation are available through <I>*_in</I>
+variables, one for each parameter. The return value of the procedure is
+available through the <I>return_val</I> variable.</TD>
+</TR>
+
+<TR>
+<TD>always <I>varlist expr ?fail-action? ?-default_also?</I></TD>
+
+<TD>Program state assertion: evaluates <I>expr</I> every time one of the
+variables in <I>varlist</I> changes. The variables in <I>varlist</I> should
+be (a subset of) the variables in <I>expr</I>, and the expression should
+be a statement about the relationships that must hold or values those variables
+can take on. The assertion exists for the lifetime of the variables in
+<I>varlist</I>, and the <I>always</I> assertion can be used in procedure
+bodies for local variables, as well as for global variables.</TD>
+</TR>
+</TABLE></CENTER>
+
+<P><BR>
+</P>
+
+<P>The form for each of these assertions is: </P>
+
+<P><I>assert-cmd expression [failure-action] [-default_also]</I> </P>
+
+<P>where <I>assert-cmd</I> is one of <I>assert</I>, <I>assume</I>, or <I>assure</I>.
+The <I>always</I> assertion is: </P>
+
+<P><I>always varlist expression [failure-action] [-default_also]</I> </P>
+
+<P>In both forms, <I>expression</I> is the Tcl expression to be evaluated.
+For the assertion to be satisfied, this expression must evaluate to true
+(nonzero). For the <I>always</I> assertion, <I>varlist</I> is a list of
+variables to activate the assertion on, such that when any one of them
+changes, the expression is evaluated. It does not have to include all the
+variables in the <I>always</I>,<A NAME="tex2html3"></A><A HREF="#209" NAME="tex2html3">(footnote)</A>
+but should not include any variables not in the expression. </P>
+
+<P><I>Failure-action</I> is an optional Tcl statement (block) that, if
+supplied, will be executed if the assertion fails. If no <I>failure-action</I>
+is specified, the default action of producing a general exception occurs,
+printing out the nature of the failed assertion and aborting the program.
+<I>-default_also</I> is an optional flag that, if specified, will execute
+the default action after executing the <I>failure-action</I>; this can
+be used to print out detailed messages in the <I>failure-action</I>, while
+still aborting the program. </P>
+
+<P>For assertions about (and in) procedures, the value of the input parameters
+at the time of invocation is useful, because the parameters may be changed
+during execution of the procedure, and an assertion would no longer have
+access to the original values. For this, we create variables of the form
+<I>param_in</I>, where <I>param</I> is the name of each parameter to the
+procedure. These <I>*_in</I> variables are set with the input value of
+the parameter, and do not change over the execution of the procedure. They
+can be used in any assertion inside that procedure. </P>
+
+<P>For <I>assure</I> assertions, the return value of the procedure must
+also be available. We provide this through a variable <I>return_val</I>.
+This variable is set in evaluating an <I>assure</I>, when the procedure
+is exiting. While it can potentially clash with an existing variable name
+(as can the <I>*_in</I> variables), if the variable is local, no harmful
+effects will occur since the procedure is exiting, though the original
+value will not be accessible in the <I>assure</I>. The only case where
+a problem will occur is if <I>return_val</I> is a global variable and is
+declared so in the procedure. For this case, we would strongly suggest
+that <I>return_val</I> is not a very good name for a global variable.<A NAME="tex2html4"></A><A HREF="#297" NAME="tex2html4">(footnote)</A>
+</P>
+
+<H2><A NAME="SECTION00021000000000000000"></A>2.1 Usage Conventions</H2>
+
+<P>Assertions in a program become part of the documentation of the program,
+its behavior, and its internal interfaces between modules and procedures.
+This suggests that some of the assertion forms should have standard placements
+in the program. </P>
+
+<P>The <I>assert</I> assertion is a point assertion. It should be used
+at any point in the Tcl program where the programmer can make a succinct
+declarative statement about the state of the program, or where they want
+to ensure that a variable or variables contain the proper data. At the
+top or bottom of a loop body it can act as a loop invariant. </P>
+
+<P>For procedure interfaces, the <I>assume</I> and <I>assure</I> assertions
+should be used. These assertions capture the assumptions that the procedure
+makes on its parameters and any global variables used, and the assurances
+of its return values or of any global variables changed. The assertions
+in effect become part of the declaration of the procedure interface. As
+such, they should appear as the first statements in the procedure body,
+after any <I>global</I> statements (which are also part of the interface).
+</P>
+
+<P>The <I>always</I> assertion, when it is used as an assertion about global
+state, should appear at the top of the given Tcl module that has the global
+state variables. If it is being used as an assertion about the internal
+state of a procedure, it should appear at the top of the procedure body,
+after any <I>assume</I> and <I>assure</I> assertions, or after the variables
+are created. </P>
+
+<H1><A NAME="SECTION00030000000000000000"></A>3 Quantifier Commands<A NAME="secquantifiers"></A>&nbsp;
+</H1>
+
+<P>The two basic aggregate data types in Tcl are the list and array. Assertions
+may often take the form of describing the properties of a list or an array;
+for example, specifying that a list contains all positive numeric items.
+In these cases, universal and existential quantifiers over lists and arrays
+are useful. Our commands for these take the general form of: </P>
+
+<P><I>quantifier {item|index list} {array-name|list} expression</I> </P>
+
+<P>Our four quantifiers are <I>lall</I> and <I>lexists</I> for list universal
+and existential quantification, and <I>rall</I> and <I>rexists</I> for
+array quantification. These commands are summarized in Table&nbsp;<A HREF="Assertcl.html#tabquantifier">2</A>.
+The first parameter to a quantifier is a list of item names or index names
+(dependent on whether a list or array is used). These names are variables
+that take on successive values of the items in a list (indices into an
+array). The quantifiers have their general meaning: the expressions in
+<I>lall</I> and <I>rall</I> must hold for all sequences of items (indices),
+and the expressions in <I>lexists</I> and <I>rexists</I> must hold for
+at least one sequence of items (indices). A quantifier returns 0 for false
+and 1 for true. </P>
+
+<P><A NAME="264"></A>&nbsp;<A NAME="tabquantifier"></A>&nbsp;<BR>
+<B>Table 2:</B> The four quantifier commands for Tcl.<BR>
+</P>
+
+<CENTER><TABLE BORDER=1 CELLSPACING=0 CELLPADDING=4 >
+<TR>
+<TD ALIGN=CENTER COLSPAN="2">General Form of Quantifiers</TD>
+</TR>
+
+<TR>
+<TD><I>quantifier-cmd item-varname[s] data-struct expr</I></TD>
+
+<TD>A quantifier command evaluates <I>expr</I> for all items or item sequences
+in the data structure (list or array), and returns 1 if the expression
+is true (nonzero) for the specified quantification over the data structure.
+If <I>item-varname</I> is singular, that variable takes on the value of
+each item in the list (or index in the array) as the quantified expression
+is evaluated. If <I>item-varname</I> is a list, the variable names in the
+list take on successive values in the data structure, such that the order
+of names in the parameter is the order of values in the data structure.
+If more <I>item-varname</I>'s are specified than there are members in the
+data structure, the quantifier returns 1.</TD>
+</TR>
+
+<TR>
+<TD ALIGN=CENTER COLSPAN="2">Specific Quantifier Commands</TD>
+</TR>
+
+<TR>
+<TD>lall <I>item[s] list expr</I></TD>
+
+<TD>List universal: evaluates <I>expr</I> for all items or item sequences,
+and returns 1 if the expression is true over the whole list, and 0 otherwise.</TD>
+</TR>
+
+<TR>
+<TD>lexists <I>item[s] list expr</I></TD>
+
+<TD>List existential: evaluates <I>expr</I> for all items or item sequences,
+and returns 1 if the expression is true for any item (item sequence) in
+the list, and 0 otherwise.</TD>
+</TR>
+
+<TR>
+<TD>rall <I>index[es] array-name expr</I></TD>
+
+<TD>Array universal: evaluates <I>expr</I> for all indices or index sequences,
+and returns 1 if the expression is true over the whole array, and 0 otherwise.
+The index list can be prepended with any sorting flags that 'lsort' accepts.</TD>
+</TR>
+
+<TR>
+<TD>rexists <I>index[es] array-name expr</I></TD>
+
+<TD>Array existential: evaluates <I>expr</I> for all indices or index sequences,
+and returns 1 if the expression is true for any index (index sequence)
+in the array, and 0 otherwise. The index list can be prepended with any
+sorting flags that 'lsort' accepts.</TD>
+</TR>
+</TABLE></CENTER>
+
+
+<P>For example, to specify that all elements of a numeric list are positive,
+the quantifier </P>
+
+<PRE>  lall i $list {$i &gt;= 0}</PRE>
+
+<P>is used. Here the item list is only one item, <I>i</I>. One item, however,
+cannot be used for relations among items, such as specifying that a list
+is sorted. For this, a quantifier such as </P>
+
+<PRE>  lall {i1 i2} $list {$i1 &lt;= $i2}</PRE>
+
+<P>is used, where <I>i1</I> and <I>i2</I> take on successive values of
+items in the list. On a list of five items, for example, there would be
+four pairs of items to compare in the quantifier. If a list is shorter
+than the number of items asked for, the quantifier returns true (1). </P>
+
+<P>Array quantifiers work the same way, except for one problem--the order
+of indices to an array is unconstrained,<A NAME="tex2html6"></A><A HREF="#352" NAME="tex2html6">(footnote)</A>
+so quantifiers over sequences of elements are less obvious. Still, in many
+uses of arrays, programmers do have a sequence of indices in mind, and
+it would not be unreasonable to specify that an array is sorted, like </P>
+
+<PRE>  rall {i1 i2} Arr {$Arr($i1) &lt;= $Arr($i2)}</PRE>
+
+<P>For this, our quantifiers process the indices in an <I>lsort</I>'ed
+sequence; that is, we use an index sequence returned by <I>[lsort [array
+names Arr]]</I>, in this example.<A NAME="tex2html7"></A><A HREF="#367" NAME="tex2html7">(footnote)</A>
+However, <I>lsort</I> by default is an ASCII string sort, and if the indices
+are numeric, this will give the wrong order. For this, our index list can
+take any flags that <I>lsort</I> takes, and we pass these on to <I>lsort</I>.
+Thus, the above quantifier would be changed to </P>
+
+<PRE>  rall {-integer -decreasing i1 i2} Arr \
+       {$Arr($i1) &lt;= $Arr($i2)}</PRE>
+
+<P>to specify integer indices in a decreasing order. This syntax is a bit
+cumbersome and unfortunate, but it is the best we can do. </P>
+
+<H1><A NAME="SECTION00040000000000000000"></A>4 Controlling Assertion Checking<A NAME="seccontrol"></A>&nbsp;
+</H1>
+
+<P>We recognize that assertion checking can be costly in some instances,
+in terms of performance. This can be especially true with quantifiers over
+large data structures, and the cost can be somewhat hidden at times. For
+example, if a procedure is called for each item in a data structure, and
+that procedure has an assertion about the whole data structure, the assertion
+effectively turns an <I>O</I>(<I>n</I>) computation into one that is .
+</P>
+
+<P>We expect that when a program is finally released for use, disabling
+the assertion processing is desirable. Even during system development,
+as some portions of the system become reliable, it may be desirable to
+turn off assertion processing for those portions. </P>
+
+<P>In A<FONT SIZE=-1>SSER</FONT>T<FONT SIZE=-1>CL</FONT>, assertions are
+controlled through the <I>assertcl</I> control interface. Table&nbsp;<A HREF="Assertcl.html#tabassertcl">3</A>
+shows the commands that are allowed by this interface. </P>
+
+<P><A NAME="366"></A>&nbsp;<A NAME="tabassertcl"></A>&nbsp;<BR>
+<B>Table 3:</B> The control interface for A<FONT SIZE=-1>SSER</FONT>T<FONT SIZE=-1>CL</FONT>.<BR>
+</P>
+
+<CENTER><TABLE BORDER=1 CELLSPACING=0 CELLPADDING=4 >
+<TR>
+<TD ALIGN=CENTER COLSPAN="2">Assertion Control Interface</TD>
+</TR>
+
+<TR>
+<TD>assertcl <I>disable ?all|proc|var? ?all|proclist|varlist?</I></TD>
+
+<TD>Disables all assertion checking, assertion checking for the 
+given list of procs, or assertion checking for the given list of
+variables. The keyword <I>all</I> can be used in place of a procedure
+or variable list, indicating all procedures or all variables, 
+respectively.</TD>
+</TR>
+
+<TR>
+<TD>assertcl <I>enable ?all|proc|var? ?all|proclist|varlist?</I></TD>
+
+<TD>Enables all assertion checking, assertion checking for the 
+given list of procs, or assertion checking for the given list of
+variables. The keyword <I>all</I> can be used in place of a procedure
+or variable list, indicating all procedures or all variables, 
+respectively.</TD>
+</TR>
+</TABLE></CENTER>
+
+
+<P>Assertion control is provided at the procedure level, variable level
+(for <I>always</I>), and the global level. The global level simply disables
+all assertion processing, and is effected by issuing the command </P>
+
+<PRE>  assertcl disable all</PRE>
+
+<P>for disabling, and with the <I>enable</I> keyword for enabling. </P>
+
+<P>By using the <I>proc</I> keyword and providing a list of procedure names,
+assertion disabling can be done per procedure. The command </P>
+
+<PRE>  assertcl disable proc P1 P2 P3</PRE>
+
+<P>would disable assertion checking for the three named procedures. Other
+assertion processing would still take place, provided that global assertion
+checking had not been disabled. The keyword <I>all</I> in place of a list
+of procedure names disables assertion checking for all procedures. </P>
+
+<P>A similar use of the <I>var</I> keyword disables processing any <I>always</I>
+assertions for the specified variables; if a given <I>always</I> assertion
+still relies on other enabled variables, however, it will be processed
+when those variables change. The keyword <I>all</I> in place of a list
+indicates all variables with <I>always</I> assertions. </P>
+
+<P>Even with global-level assertion disabling, an overhead of checking
+the control variables is still paid. Thus, for a situation such as final
+release of the software, a <I>nullassertcl</I> package that declares empty
+assertion commands is available. Requiring this package in place of the
+regular <I>assertcl</I> package source leaves just the call of an empty
+procedure as the only overhead. </P>
+
+<P>Section&nbsp;<A HREF="Assertcl.html#secperfeval">7</A> analyzes the
+run-time performance of these various levels of assertion checking. </P>
+
+<P>For removing virtually all overhead of using assertions, our future
+work is expected to include making a program processor that will comment
+and uncomment assertion commands automatically. This will allow virtually
+no overhead (except for comment-skipping) to exist in a released program,
+while still allowing the assertions to remain as documentation, and to
+be reactivated if needed. </P>
+
+<H1><A NAME="SECTION00050000000000000000"></A>5 Implementing Tcl Assertions<A NAME="secpragmatics"></A>&nbsp;
+</H1>
+
+<P>The main Tcl command that enables the addition of assertion commands
+is the <I>uplevel</I> command, which evaluates a script in a different
+context; thus a procedure can be passed an expression or even a block of
+statements, and it can evaluate those in the context of its caller, thus
+making the procedure look like a command in its caller's context. </P>
+
+<P>The other main Tcl feature that we use is the ability to rename an internal
+command and replace it with our own procedure. We implement a <I>proc</I>
+procedure that acts as a front-end processor to the real <I>proc</I> command.
+Our front-end searches the procedure body for assertion commands, and does
+the following two things if it finds any. </P>
+
+<OL>
+<LI>The body of the procedure gets prepended with statements that copy
+parameter values to a corresponding <I>param_in</I> variable. This gives
+access to the input values regardless of whether the procedure modifies
+the real parameter variables. Only those <I>param_in</I> variables that
+are used are copied. </LI>
+
+<LI>Each <I>return</I> statement in the procedure gets replaced with our
+own <I>assertReturn</I> statement. Ours takes care of evaluating the <I>assure</I>'s
+for that procedure, and then returning from the procedure. </LI>
+</OL>
+
+<P>After these two operations on the procedure body are done, we then call
+the normal <I>proc</I> command, so that Tcl registers the procedure. The
+implementation of <I>assure</I> is explained in more detail below. </P>
+
+<H2><A NAME="SECTION00051000000000000000"></A>5.1 Assert, Assume, and Always:
+The Easy Ones</H2>
+
+<P>The <I>assert</I> command is implemented in the straightforward manner
+of a procedure that acts like a command, i.e., <I>uplevel</I>'ing the expression
+to be evaluated and catching any returned exceptions. If the expression
+itself generates an exception (an error or a user-defined exception), <I>assert</I>
+passes this back to the enclosing context. If the assertion fails, <I>assert</I>
+by default generates its own exception using the <I>return</I> command.
+If the <I>assert</I> has an associated <I>failure-action</I>, however,
+that action will be <I>uplevel</I>'ed rather than generating an exception.
+</P>
+
+<P>The <I>assume</I> command is really just an alias for the <I>assert</I>
+command, implemented as a procedure that <I>uplevel</I>'s an <I>assert</I>
+call. This does not quite fit the definition of an <I>assume</I> being
+evaluated at the start of a procedure invocation, since if the <I>assume</I>
+statement is not placed at the beginning of the procedure body (like we
+suggest), it will not be evaluated at the start. The alternative would
+be to preprocess the procedure body and move the <I>assume</I>'s, but this
+would involve some serious syntactic analysis. For now, our decision is
+to forego this step and rely on conventional placement of the <I>assume</I>
+commands. </P>
+
+<P>For implementing the <I>always</I> assertion, the Tcl <I>trace</I> command
+is used, which allows registration of a procedure to call each time a variable
+is written (reads are also traceable). The <I>always</I> assertion creates
+a uniquely named procedure that evaluates the expression in the assertion
+and processes any exceptional conditions and a <I>failure-action</I>, if
+there is one. This procedure is then attached to each variable specified
+in the <I>varlist</I> parameter using the <I>trace</I> command. </P>
+
+<H2><A NAME="SECTION00052000000000000000"></A>5.2 Assure: The Hard One</H2>
+
+<P>Implementing the <I>assure</I> command is quite a bit different and
+more involved. For this command, we do need to modify the procedure body.
+Due to the <I>return</I> command being a not-so-general exception generating
+mechanism, we do not (and cannot) globally replace the <I>return</I> command,
+but we process the procedure's body and replace each <I>return</I> in a
+procedure with our own <I>assertReturn</I> procedure, if the procedure
+being processed has any <I>assure</I>'s. The <I>assertReturn</I> procedure
+evaluates the <I>assure</I>'s, and then effects a real <I>return</I> from
+the calling procedure. </P>
+
+<P>Replacing the <I>return</I> command can cause some problems and incompatibilities
+with existing Tcl behavior, but only under well-defined circumstances.
+The problem stems from the fact that <I>return</I> is not simply a command
+that returns a value from a procedure, but rather a mechanism for generating
+exceptions. The exception generated by a <I>return</I> is passed by Tcl
+to the context of the caller of the procedure that the return command is
+in. But when we replace the <I>return</I> with our own procedure, we add
+a layer of procedure call, so that now the context that gets the exception
+is our caller, not our caller's caller, as it should be. And <I>return</I>
+cannot be <I>uplevel</I>'ed, because of the way the call stack is processed
+in Tcl. </P>
+
+<P>Nevertheless, for Tcl code that simply uses <I>return</I> in the normal
+fashion of returning a value from a procedure,<A NAME="tex2html8"></A><A HREF="#458" NAME="tex2html8">(footnote)</A>
+replacing the command with our own does not break any Tcl behavior, and
+allows us to evaluate any <I>assure</I>'s and then effect a real return.
+</P>
+
+<P>The lexical replacement of <I>return</I> with <I>assertReturn</I> is
+not done globally or universally. We only do this in the body of a procedure
+that is using <I>assure</I>s, so that any other use of return is not affected.
+Furthermore, we only replace a return call that begins on its own line
+(white space excluded). This not only offers simple and quick replacement,
+avoiding complex syntactic processing, but offers an ``out'' to a programmer
+who needs to use return to throw an arbitrary exception in a procedure
+using <I>assure</I>s--they can hide the return from our processing by using
+a construct such as </P>
+
+<PRE>  if 1 { return -code $Exception ... }</PRE>
+
+<P>Since this return does not begin its own line, our replacement method
+will ignore it. </P>
+
+<P>The <I>error</I> command can also be used to return from a procedure,
+but since this method is not interceptable (due to the above-mentioned
+limitations on the <I>return</I> command), we make no effort to catch this
+command. In&nbsp;[<A HREF="Assertcl.html#TclTkBook:94">4</A>], it is recommended
+that <I>error</I> not be used except for true errors, in any case. </P>
+
+<H1><A NAME="SECTION00060000000000000000"></A>6 Examples<A NAME="secexamples"></A>&nbsp;
+</H1>
+
+<P>This section presents a few simple examples to give a flavor for what
+assertions in Tcl look like and can do. <BR>
+</P>
+
+<P>A point assertion about variables x and y: </P>
+
+<PRE>  assert {$x&gt;4 &amp;&amp; $x&lt;$y+2}</PRE>
+
+<P>A point assertion that simply prints a warning and does not abort the
+program: </P>
+
+<PRE>  assert {$x&gt;4 &amp;&amp; $x&lt;$y+2} {
+     puts &quot;Assert failed: x:$x y:$y&quot;
+  }</PRE>
+
+<P>An assertion about some global variables over the life of the program:
+</P>
+
+<PRE>  always NumUsers {$NumUsers &gt;= 1 &amp;&amp; \
+                   $NumConnected &gt; $NumUsers}</PRE>
+
+<P>Note that this assertion only gets checked when <I>NumUsers</I> changes,
+not when <I>NumConnected</I> changes. <BR>
+</P>
+
+<P>A simple procedure declaration with interface assertions: </P>
+
+<PRE>  proc square {x} {
+     assume {$x+1 &gt; $x}  ;# tests for numeric value
+     assure {$return_val == $x_in * $x_in}  
+     set x [expr $x * $x]
+     return $x
+  }</PRE>
+
+<P>A procedure that returns the quotient and remainder of a divide operation:
+</P>
+
+<PRE>  #
+  # divmod: returns a two-element list of quotient 
+  #         and remainder
+  #
+  proc divmod {dividend divisor} {
+     # simply test for numeric value
+     assume {$dividend + 1 &gt; $dividend} 
+     # also, make sure non-zero divisor
+     assume {$divisor + 1 != 1} 
+     # must return the correct quotient and remainder
+     assure {[lindex $return_val 0]*$divisor_in +  \
+             [lindex $return_val 1] == $dividend_in} 
+     # procedure body
+     set quot [expr $dividend / $divisor]
+     set rem  [expr $dividend % $divisor]
+     return [list $quot $rem]
+  }</PRE>
+
+<P>Assert that all list elements are positive: </P>
+
+<PRE>  assert {[lall item $list {$item&gt;=0}]}</PRE>
+
+<P>Assert that a list contains an element ``Jon'': </P>
+
+<PRE>  assert {[lexists item $list {&quot;Jon&quot; == $item}]}</PRE>
+
+<P>Assert that a list is sorted: </P>
+
+<PRE>  assert {[lall {i1 i2} $list {$i1 &lt;= $i2}]}</PRE>
+
+<P>Assert that an array contains the value 42: </P>
+
+<PRE>  assert {[rexists i Arr {$Arr($i) == 42}]}</PRE>
+
+<P>Assert that an integer-indexed array is sorted: </P>
+
+<PRE>  assert {[rall {-integer i1 i2} Arr \
+         {$Arr($i1) &lt;= $Arr($i2)}]}</PRE>
+
+<P>Of course, an arbitrary Tcl procedure can be called in an assertion
+(though it should not have side effects!), so a procedure that checks the
+consistency of a more complex data structure can be used, like: </P>
+
+<PRE>  assert {[lall cust $CustomerList \
+         {[CheckCustRecord $cust]} {
+     puts &quot;Warning: Customer is malformed -- $cust&quot;
+  }</PRE>
+
+<P>which asserts that a list of customer records are all consistent, but
+only prints a warning if it is not. </P>
+
+<H1><A NAME="SECTION00070000000000000000"></A>7 Performance Evaluation<A NAME="secperfeval"></A>&nbsp;
+</H1>
+
+<P>While assertions serve as unambiguous, written-down, declarative specifications
+of a program behavior, their compelling reason of existence is that they
+can be evaluated at run-time, providing increased assurance that a program's
+behavior is correct. </P>
+
+<P>Run-time evaluation of assertions does not come for free, of course.
+They add extra processing to a program and can add significant increases
+in program execution time. For example, in the case of an assertion using
+<I>lall</I>, the expression must be evaluated over the whole list to evaluate
+the assertion. If it is in a loop, each iteration of the loop processes
+the whole list, potentially making an <I>O</I>(<I>n</I>) operation become
+<I>O</I>(<I>n^2</I>). </P>
+
+<P>This overhead can be controlled during development and testing through
+the judicious enabling and disabling of assertions in procedures and variables,
+as explained in Section&nbsp;<A HREF="Assertcl.html#seccontrol">4</A>.
+</P>
+
+<P>Here we present some performance numbers for a small Tcl program developed
+using assertions. The program was a non-interactive, stochastic Petri net
+simulator, and made heavy use of arrays. The program consisted of thirteen
+procedures, all of which had assertions in them. Two procedures used the
+<I>lall</I> quantifier in their assertions. The program did not contain
+any <I>always</I> assertions. The program was 177 source lines, excluding
+comments and brace-only lines, and had 16 assertions. </P>
+
+<P>We ran the program using both Tcl 7.6 and Tcl 8.0a2, on an UltraSparc
+running Solaris. Table&nbsp;<A HREF="Assertcl.html#tabperformance">4</A>
+shows the performance of a Tcl program over various configurations of assertion
+checking. Each value is the mean of 5 runs, timed using the Unix <I>time</I>
+command. Rows with `-P#' configurations have assertion checking disabled
+for the specified procedures, but enabled for everything else. The last
+line in the table was the running time of the program with all assertion
+statements hand-commented out of the program. This represents the lower
+bound on running time. </P>
+
+<P><A NAME="538"></A>&nbsp;<A NAME="tabperformance"></A>&nbsp;<BR>
+<B>Table 4:</B> Performance of assertions on Tcl 7.6 and Tcl 8.0a2<BR>
+</P>
+<CENTER><TABLE BORDER=1 CELLSPACING=0 CELLPADDING=4 >
+<TR>
+<TD>Assertion Configuration</TD>
+<TD>Tcl 7.6</TD>
+<TD>Tcl 8.0a2</TD>
+</TR>
+
+<TR>
+<TD>full assertions</TD>
+<TD>97.53</TD>
+<TD>48.16</TD>
+</TR>
+
+<TR>
+<TD>-P1</TD>
+<TD>79.43</TD>
+<TD>39.32</TD>
+</TR>
+
+<TR>
+<TD>-P2</TD>
+<TD>78.12</TD>
+<TD>38.64</TD>
+</TR>
+
+<TR>
+<TD>-P1,P2,P4</TD>
+<TD>62.17</TD>
+<TD>28.51</TD>
+</TR>
+
+<TR>
+<TD>-P3</TD>
+<TD>35.91</TD>
+<TD>23.63</TD>
+</TR>
+
+<TR>
+<TD>all disabled</TD>
+<TD>3.69</TD>
+<TD>2.87</TD>
+</TR>
+
+<TR>
+<TD>-P1-P8</TD>
+<TD>2.56</TD>
+<TD>2.29</TD>
+</TR>
+
+<TR>
+<TD>nullpackage</TD>
+<TD>1.14</TD>
+<TD>0.73</TD>
+</TR>
+
+<TR>
+<TD>comment-out</TD>
+<TD>0.95</TD>
+<TD>0.66</TD>
+</TR>
+</TABLE></CENTER>
+
+<P>As can be seen, full assertion checking carries a high price for this
+particular example. It runs almost 100 times slower on Tcl 7.6, and almost
+75 times slower on Tcl 8.0. Disabling various procedures reduces the time
+by considerable amount, with the disabling of assertions in P3 cutting
+the execution time by over half on Tcl 8.0, and almost two-thirds on Tcl
+7.6. </P>
+
+<P>The two methods of disabling assertion checking, using <I>assertcl disable
+all</I> or using the <I>nullassertcl</I> package both show good performance
+relative to the commented-out performance. The <I>nullassertcl</I> package
+performance is within 20% on Tcl 7.6 and within 11% on Tcl 8.0, indicating
+that it is deployable technology--with an interactive Tk program, an 11%
+overhead would not be noticeable in most instances. </P>
+
+<P>An interesting note is that disabling assertions in eight of the thirteen
+procedures results in performance that is faster than the global <I>assertcl
+disable all</I>; this happens because the procedure disabling actually
+skips inserting any assertion processing in the body of the disabled procedure(s).
+Thus, if the time-critical procedures are disabled in this manner, the
+other procedures can still check assertions, and the performance remains
+good. </P>
+
+<P>For the list quantifiers, allowing the commands to use list names rather
+than lists would improve their processing time immensely.<A NAME="tex2html10"></A><A HREF="#551" NAME="tex2html10">(footnote)</A>
+However, this usage would not be consistent with the normal Tcl list commands,
+so we chose to leave the calling interface as using a list. However, we
+may decide to change this, or support both, in the future. </P>
+
+<H1><A NAME="SECTION00080000000000000000"></A>8 Conclusion<A NAME="secconclude"></A>&nbsp;
+</H1>
+
+<P>In this paper we presented A<FONT SIZE=-1>SSER</FONT>T<FONT SIZE=-1>CL</FONT>,
+an assertion package for the Tcl programming language. We feel that assertions
+will make the development of robust systems easier. At the same time, we
+hope to use this foundation for future research exploring more ideas in
+assertions for programming languages, and for evaluating the effectiveness
+of assertions. Tcl is an evolving language, and the next version will have
+<I>namespaces</I>, which will be akin to packages or modules. Earlier work
+on Ada packages&nbsp;[<A HREF="Assertcl.html#AnnaBook:90">2</A>] and Eiffel
+objects&nbsp;[<A HREF="Assertcl.html#EiffelBook:88">3</A>] have shown that
+modules present interesting issues in developing effective assertions for
+them. In addition, object oriented extensions to Tcl exist, and these can
+provide a platform for exploring issues about assertions for classes and
+objects. </P>
+
+<P>In developing this package, some limitations were encountered that could
+be ameliorated by adding some functionality to the Tcl core language. Our
+suggestions are: </P>
+
+<OL>
+<LI>Extend the exception generating capability of the <I>return</I> command
+so that it is possible to throw an exception to a specified level, rather
+than always the caller. This would enable the true replacement of the <I>return</I>
+command (enabling other debugging packages), and would generalize the exception
+mechanism. </LI>
+
+<LI>Extend the <I>info</I> command with access to a procedure's current
+line number (when executing) and file name. This is also a feature that
+would enable more functional debugging packages. The <I>info level</I>
+command could be extended to provide the line number currently being executed
+in that level, and a command such as <I>info proc procName</I> could be
+added that would return the file name and the beginning line number of
+the procedure definition. </LI>
+</OL>
+
+<H1><A NAME="SECTION00090000000000000000"></A>Availability</H1>
+
+<P>A<FONT SIZE=-1>SSER</FONT>T<FONT SIZE=-1>CL</FONT> is, and hopefully
+will remain, a Tcl-only package, to ensure the best portability and ease
+of installation and use. It is freely available at <A HREF="http://www.cs.colorado.edu/~jcook/TclTk">http://www.cs.colorado.edu/jcook/TclTk</A>.
+</P>
+
+<H1><A NAME="SECTION000100000000000000000"></A>Acknowledgements</H1>
+
+<P>I would like to thank Professor Mikhail Auguston for discussing aspects
+of assertions for programming languages, and to Professor David Rosenblum
+for first turning me on to assertions. Many thanks to the anonymous reviewers
+of this paper as well. Their suggestions improved it greatly. </P>
+
+<P><A NAME="SECTIONREF"></A></P>
+
+<H2>References</H2>
+
+<DL COMPACT>
+<DT><A NAME="AugustonEtAl:96"></A><B>1</B></DT>
+
+<DD> M.&nbsp;Auguston, S.&nbsp;Banerjee, M.&nbsp;Mamnani, G.&nbsp;Nabi,
+J.&nbsp;Reinfelds, U.&nbsp;Sarkans, and I.&nbsp;Strnad. A Debugger and
+Assertion Checker for the Awk Programming Language. In <I>Proc. International
+Conference on Software Engineering: Education and Practice</I>, Dunedin,
+New Zealand, 1996. </DD>
+
+<DT><A NAME="AnnaBook:90"></A><B>2</B></DT>
+
+<DD> David Luckham. <I>Programming with Specifications: An introduction
+to Anna, a language for specifying Ada programs</I>. Texts and Monographs
+in Computer Science. Springer-Verlag, New York, 1990. </DD>
+
+<DT><A NAME="EiffelBook:88"></A><B>3</B></DT>
+
+<DD> Bertrand Meyer. <I>Object-Oriented Software Construction</I>. Prentice
+Hall, New York, 1988. </DD>
+
+<DT><A NAME="TclTkBook:94"></A><B>4</B></DT>
+
+<DD> John&nbsp;K. Ousterhout. <I>Tcl and the Tk Toolkit</I>. Professional
+Computing Series. Addison-Wesley, Reading, MA, 1994. </DD>
+
+<DT><A NAME="APP:95"></A><B>5</B></DT>
+
+<DD> <A HREF="http://www.ics.uci.edu/~dsr/">David&nbsp;S. Rosenblum</A>. 
+A Practical Approach to Programming with
+Assertions. <I>IEEE Transactions on Software Engineering</I>, 1995. </DD>
+</DL>
+
+<H1><A NAME="SECTION000120000000000000000"></A>About this document ...
+</H1>
+
+<P>This document was generated using the <A HREF="http://www-dsed.llnl.gov/files/programs/unix/latex2html/manual/"><B>LaTeX</B>2<TT>HTML</TT></A>
+translator Version 96.1-h (September 30, 1996) Copyright &copy; 1993, 1994,
+1995, 1996, <A HREF="http://cbl.leeds.ac.uk/nikos/personal.html">Nikos
+Drakos</A>, Computer Based Learning Unit, University of Leeds. </P>
+
+<P><B><FONT SIZE=+1>Footnotes</FONT></B></P>
+
+<DL>
+<P> </P>
+
+<DT><A NAME="209"></A>...<I>always</I>,</DT>
+
+<DD>For example, there may be transient states for one of the variables
+that should be ignored. </DD>
+
+<DT><A NAME="297"></A>...variable.</DT>
+
+<DD>There are safer ways for naming input parameter and return value variables,
+such as using an array with named elements, like <I>assert(return)</I>
+for the return value. It was felt that a construct such as this would simply
+be too cluttering for being able to succinctly read an assertion expression.
+</DD>
+
+<DT><A NAME="352"></A>...unconstrained,</DT>
+
+<DD>In Tcl, arrays are associative, and any string can be an index into
+an array. </DD>
+
+<DT><A NAME="367"></A>...example.</DT>
+
+<DD>Of course, a quantifier using only one index does not call <I>lsort</I>,
+since there is no order needed. </DD>
+
+<DT><A NAME="458"></A>...procedure,</DT>
+
+<DD>A procedure return ``exception'' is the only one that can be passed
+up one extra level. </DD>
+
+<DT><A NAME="551"></A>...immensely.</DT>
+
+<DD>A simple test with a 20-element list showed an order of magnitude in
+speed difference. </DD>
+</DL>
+
+<P>
+<HR><I>Jonathan Cook <BR>
+Wed May 28 11:17:11 MDT 1997</I> </P>
+
+</BODY>
+</HTML>
